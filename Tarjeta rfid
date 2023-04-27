@@ -1,0 +1,73 @@
+#include <SPI.h>
+#include <MFRC522.h>
+
+#define SS_PIN 10
+#define RST_PIN 9
+
+MFRC522 mfrc522(SS_PIN, RST_PIN);   // Crear instancia del lector RFID
+
+int redLedPin = 2;      // Pin del LED rojo
+int greenLedPin = 3;    // Pin del LED verde
+
+byte tarjetaAutorizada1[4] = {0x63, 0xD7, 0x6F, 0x9F};   // UID de tarjeta autorizada 1
+byte tarjetaAutorizada2[4] = {0x55, 0x66, 0x77, 0x88};   // UID de tarjeta autorizada 2
+// puedes agregar más UIDs autorizados si lo deseas
+
+void setup() {
+  Serial.begin(9600);   // Iniciar comunicación serial
+  pinMode(redLedPin, OUTPUT);
+  pinMode(greenLedPin, OUTPUT);
+  digitalWrite(redLedPin, LOW);     // Apagar LED rojo al inicio
+  digitalWrite(greenLedPin, LOW);   // Apagar LED verde al inicio
+  SPI.begin();                      // Iniciar comunicación SPI
+  mfrc522.PCD_Init();               // Iniciar lector RFID
+}
+
+void loop() {
+  // Esperar a que se detecte una tarjeta
+  if (!mfrc522.PICC_IsNewCardPresent()) {
+    return;
+  }
+
+  // Leer el UID de la tarjeta
+  if (!mfrc522.PICC_ReadCardSerial()) {
+    return;
+  }
+
+  // Mostrar el UID de la tarjeta en el Serial Monitor
+  Serial.print("UID de tarjeta: ");
+  for (byte i = 0; i < mfrc522.uid.size; i++) {
+    Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? "0" : "");
+    Serial.print(mfrc522.uid.uidByte[i], HEX);
+  }
+  Serial.println();
+
+  // Verificar si la tarjeta es autorizada
+  bool tarjetaAutorizada = false;
+  if (memcmp(mfrc522.uid.uidByte, tarjetaAutorizada1, 4) == 0) {
+    tarjetaAutorizada = true;
+  }
+  else if (memcmp(mfrc522.uid.uidByte, tarjetaAutorizada2, 4) == 0) {
+    tarjetaAutorizada = true;
+  }
+  // puedes agregar más comparaciones para UIDs autorizados
+
+  // Encender el LED correspondiente
+  if (tarjetaAutorizada) {
+    digitalWrite(greenLedPin, HIGH);
+    digitalWrite(redLedPin, LOW);
+    delay(3000);
+    digitalWrite(greenLedPin, LOW);
+    Serial.println("Tarjeta autorizada");
+  }
+  else {
+    digitalWrite(greenLedPin, LOW);
+    digitalWrite(redLedPin, HIGH);
+    delay(3000);
+    digitalWrite(redLedPin, LOW);
+    Serial.println("Tarjeta no autorizada");
+  }
+
+  mfrc522.PICC_HaltA();   // Detener comunicación con la tarjeta
+  mfrc522.PCD_StopCrypto1(); // Detener la encriptación
+}
